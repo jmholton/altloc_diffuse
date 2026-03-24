@@ -1,6 +1,6 @@
 #! /bin/tcsh -f
 #
-# phased sum of a stack of MTZ files, plus the unphased F^2 sum.        -James Holton 8-18-25
+# phased sum of a stack of MTZ files, plus the unphased F^2 sum.        -James Holton 9-21-25
 #
 #
 set mtzs = ( )
@@ -9,6 +9,8 @@ set tempdir = /dev/shm/${USER}/temp_$$_mtzsum/
 set outfile = sum.mtz
 set debug = 0
 set slow = 0
+
+set sftools = sftools2
 
 # cluster stuff
 set srun = "auto"
@@ -112,7 +114,7 @@ endif
 # for first round
 cat << EOF >! ${t}mergemtz_round1.csh
 #! /bin/tcsh -f
-sftools << eof
+$sftools << eof
 read \$1 col $inlabels
 read \$2 col $inlabels
 set labels
@@ -141,7 +143,7 @@ chmod a+x ${t}mergemtz_round1.csh
 # first-round odd-one-out
 cat << EOF >! ${t}oddmtz_round1.csh
 #! /bin/tcsh -f
-sftools << eof
+$sftools << eof
 read \$1 col $inlabels
 set labels
 EOF
@@ -163,7 +165,7 @@ chmod a+x ${t}oddmtz_round1.csh
 
 cat << EOF >! ${t}mergemtz.csh
 #! /bin/tcsh -f
-sftools << eof
+$sftools << eof
 read \$1
 read \$2
 set labels

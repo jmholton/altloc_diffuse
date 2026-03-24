@@ -12,9 +12,11 @@ set seed = 0
 set overall_scale = 1
 set spot_scale = 1
 set diffuse_scale = 1
+set background_scale = 1
 set phi_range = 360
 set osc = 1
 set beam = ""
+set extrargs = ""
 
 # crystal properties
 set missets = ( 0 0 0 )
@@ -203,10 +205,12 @@ settings:
 braggmtz = $braggmtz
 diffusemtz = $diffusemtz
 outprefix = $outprefix
+seed = $seed
 
 overall_scale = $overall_scale
 spot_scale = $spot_scale
 diffuse_scale = $diffuse_scale
+background_scale = $background_scale
 
 phi_range = $phi_range
 osc = $osc
@@ -245,9 +249,20 @@ wget = $wget
 
 debug = $debug
 fast = $fast
+parallel = $parallel
 tempfile = $tempfile
 
 EOF
+set totaltime = `echo $exposure $phi_range $osc | awk '{print $1*$2/$3}'`
+set totaldose = `echo $flux $beamsize $totaltime $wavelength | awk '{sq_um=($2*1000)^2;print $1/sq_um*$3/(2000./($4*$4))/1e6}'`
+echo "dataset dose: $totaldose MGy"
+
+set test = `echo $phi_range | awk '{print ( $1+0<=0 )}'`
+if( $test ) then
+  set BAD = "invalid phi range"
+  goto exit
+endif
+
 
 if(! -w .) then
   set BAD = "cannot write to current working directory."
@@ -341,6 +356,11 @@ skipbg:
 
 
 set nframes = `echo $phi_range $osc | awk '{print int($1/$2)}'`
+set test = `echo $nframes | awk '{print ( $1+0<=0 )}'`
+if( $test ) then
+  set BAD = "invalid number of frames: $nframes"
+  goto exit
+endif
 echo "will make $nframes diffraction patterns as ${outprefix}_#####.cbf"
 set outdir = `dirname $outprefix`
 mkdir -p $outdir
@@ -383,7 +403,8 @@ $srungpu nanoBragg$CUDA $hkl -dump Fdump.bin \
     -vdivrange $vertical_divergence -vdivsteps $vertical_divergence_steps \
     -oversample $oversample \
     -floatimage osc_spots_${num}.bin \
-    -intimage osc_spots_${num}.img >&! render_spots_${num}.log &
+    -intimage osc_spots_${num}.img \
+    $extrargs >&! render_spots_${num}.log &
     
     if(! $parallel || ( $n == 1 && ! -e Fdump.bin ) ) wait
 end
@@ -418,7 +439,8 @@ $sruncpu nanoBragg $hkl -N 1 -dump DSdump.bin \
     -beamsize $beamsize -flux $flux -exposure $exposure \
     -oversample 1 \
     -floatimage diffuse_${num}.bin \
-    -intimage diffuse_${num}.img >&! render_ds_${num}.log &
+    -intimage diffuse_${num}.img \
+    $extrargs >&! render_ds_${num}.log &
 
     if(! $parallel || ( $n == 1 && ! -e DSdump.bin ) ) wait
 end
@@ -462,7 +484,7 @@ endif
 if($fast > 11 && -e fullsum_${num}.bin) continue
 
 $sruncpu float_add -nostats -scale1 $xtal_scale bdsum_${num}.bin \
-          -scale2 1 background.bin -outfile fullsum_${num}.bin >&! fullsum_${num}.log &
+          -scale2 $background_scale background.bin -outfile fullsum_${num}.bin >&! fullsum_${num}.log &
 end
 echo "waiting for fullsum ..."
 wait
@@ -491,7 +513,8 @@ $sruncpu noisify -seed $thisseed -scale $overall_scale \
     -detpixels_f 2463 -detpixels_s 2527 -pixel 0.172 -distance $distance \
     -phi $phi -osc $osc \
     -floatfile fullsum_${num}.bin -nopgm -intfile /dev/null \
-    -bits 32 -adc_offset 0 -noiseimage noisy_${num}.img >&! noisify_${num}.log &
+    -bits 32 -adc_offset 0 -noiseimage noisy_${num}.img \
+    $extrargs >&! noisify_${num}.log &
 
 end
 echo "waiting for noisify ..."

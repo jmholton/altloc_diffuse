@@ -38,7 +38,15 @@ if( "$CPUs" == "" ) set CPUs = 1
 
 echo "command-line arguments: $* "
 
-foreach Arg ( $* )
+set i = 0
+while( $i < $#argv )
+    @ i = ( $i + 1 )
+    @ nexti = ( $i + 1 )
+    @ lasti = ( $i - 1 )
+    if($nexti > $#argv) set nexti = $#argv
+    if($lasti < 1) set lasti = 1
+    set Arg = "$argv[$i]"
+
     set arg = `echo $Arg | awk '{print tolower($0)}'`
     set assign = `echo $arg | awk '{print ( /=/ )}'`
     set Key = `echo $Arg | awk -F "=" '{print $1}'`
@@ -52,7 +60,7 @@ foreach Arg ( $* )
       # re-set any existing variables
       set test = `set | awk -F "\t" '{print $1}' | egrep "^${Key}"'$' | wc -l`
       if ( $test ) then
-          set $Key = $Val
+          set $Key = "$Val"
           echo "$Key = $Val"
           continue
       endif
@@ -102,6 +110,15 @@ if( ! -w "${t}" ) then
   set BAD = "cannot write to temp directory: $t"
   goto exit
 endif
+
+foreach dependency ( addup_mtzs_diffuse.com )
+   echo -n "using: "
+   which $dependency
+   if( $status ) then
+       set BAD = "need $dependency in "'$'"path"
+       goto exit
+   endif
+end
 
 cat << EOF
 pdbfile = $pdbfile
